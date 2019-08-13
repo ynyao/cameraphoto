@@ -19,6 +19,17 @@ public class PicInfo implements Serializable{
     //暂时放图片在相机中的路径
     private String  keyWords;
 
+    private String filename;
+    private String mSerialNumber;
+
+    public String getFilename() {
+        return filename;
+    }
+
+    public void setFilename(String filename) {
+        this.filename = filename;
+    }
+
     public String getmSerialNumber() {
         return mSerialNumber;
     }
@@ -26,8 +37,6 @@ public class PicInfo implements Serializable{
     public void setmSerialNumber(String mSerialNumber) {
         this.mSerialNumber = mSerialNumber;
     }
-
-    private String mSerialNumber;
 
     public int getSequenceNumber() {
         return sequenceNumber;
@@ -117,13 +126,13 @@ public class PicInfo implements Serializable{
 
     @Override
     public int hashCode() {
-        return (int)(mDateCreated/1000);
+        return objectHandler;
     }
 
     @Override
     public boolean equals(Object obj) {
         PicInfo pic=(PicInfo)obj;
-        if(keyWords.equals(pic.getKeyWords())){
+        if(filename.equals(pic.getFilename())){
             return true;
         }else{
             return false;

@@ -11,38 +11,32 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 
-import com.example.test.cameraphoto.mtp.MTPService;
-import com.example.test.cameraphoto.ui.EmptyFragment;
 import com.example.test.cameraphoto.ui.PhotoFragment;
 
 import java.util.List;
 
-import io.reactivex.functions.Consumer;
-
-public class MainActivity extends AppCompatActivity implements Consumer<List>{
+public class MainActivity extends AppCompatActivity {
 
     private FragmentManager mFragmentManager;
-    EmptyFragment mEmptyFragment=new EmptyFragment();
-    PhotoFragment mPhotoFragment=new PhotoFragment();
-    MTPService mService;
+    PhotoFragment mPhotoFragment = new PhotoFragment();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         permissioncheck();
-        openFragment(mEmptyFragment);
-        mService=new MTPService(this);
+        openFragment(mPhotoFragment);
     }
 
     private void permissioncheck() {
-        if(!checkPermissionAllGranted(  new String[] {
+        if (!checkPermissionAllGranted(new String[]{
                 Manifest.permission.READ_EXTERNAL_STORAGE,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
-        })){
+        })) {
             ActivityCompat.requestPermissions(
                     this,
-                    new String[] {
+                    new String[]{
                             Manifest.permission.READ_EXTERNAL_STORAGE,
                             Manifest.permission.WRITE_EXTERNAL_STORAGE
                     },
@@ -50,6 +44,7 @@ public class MainActivity extends AppCompatActivity implements Consumer<List>{
             );
         }
     }
+
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 1) {
@@ -78,7 +73,6 @@ public class MainActivity extends AppCompatActivity implements Consumer<List>{
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mService.close();
     }
 
     private void openFragment(Fragment fragment) {
@@ -96,13 +90,4 @@ public class MainActivity extends AppCompatActivity implements Consumer<List>{
         fragmentTransaction.commitAllowingStateLoss();
     }
 
-    @Override
-    public void accept(List list) throws Exception {
-        if(list.size()<=0){
-            openFragment(mEmptyFragment);
-        }else{
-            mPhotoFragment.setData(list);
-            openFragment(mPhotoFragment);
-        }
-    }
 }

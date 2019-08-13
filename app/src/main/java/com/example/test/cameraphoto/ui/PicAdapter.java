@@ -7,8 +7,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.example.test.cameraphoto.Constant;
 import com.example.test.cameraphoto.R;
@@ -52,10 +54,14 @@ public class PicAdapter extends RecyclerView.Adapter<PicAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(ViewHolder holder, final int position) {
         final PicInfo image;
-        synchronized (obj) {
-            image = mList.get(position);
-        }
+        image = mList.get(position);
+//        Picasso.get().load(R.mipmap.icon_list).into(holder.img);
         Picasso.get().load(new File(image.getmThumbnailPath())).into(holder.img);
+        int startIndex=image.getFilename().length()-10;
+        if(startIndex<0){
+            startIndex=0;
+        }
+        holder.tvName.setText(image.getFilename().substring(startIndex));
         holder.view.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -82,10 +88,7 @@ public class PicAdapter extends RecyclerView.Adapter<PicAdapter.ViewHolder> {
 
 
     public void setData(List<PicInfo> list) {
-        synchronized (obj) {
-            mList = list;
-        }
-
+        mList = list;
     }
 
     @Override
@@ -94,16 +97,19 @@ public class PicAdapter extends RecyclerView.Adapter<PicAdapter.ViewHolder> {
     }
 
 
-    public static Object obj = new Object();
 
 
     class ViewHolder extends RecyclerView.ViewHolder {
         View view;
         ImageView img;
+        TextView tvName;
+        CheckBox cb;
 
         public ViewHolder(View itemView) {
             super(itemView);
             view = itemView;
+            tvName=itemView.findViewById(R.id.tv_name);
+            cb=itemView.findViewById(R.id.cb_select);
             img = itemView.findViewById(R.id.iv_pic);
             FrameLayout.LayoutParams fl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             fl.height = getWidth(context) / columns;

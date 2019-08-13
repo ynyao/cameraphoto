@@ -1,6 +1,5 @@
 package com.example.test.cameraphoto.mtp;
 
-import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -14,6 +13,9 @@ import android.mtp.MtpDevice;
 import android.mtp.MtpDeviceInfo;
 import android.mtp.MtpObjectInfo;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -22,9 +24,14 @@ import com.example.test.cameraphoto.FileUtils;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Flowable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
@@ -39,7 +46,7 @@ import static io.reactivex.Flowable.interval;
 
 public class MTPService {
 
-    private static String TAG="MTPService";
+    private static String TAG = "MTPService";
 
     private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
 
@@ -47,26 +54,39 @@ public class MTPService {
 
     private StringBuilder filePath = new StringBuilder();
     private Context mContext;
+    private Fragment mFragment;
+    UsbManager manager;
+    Set<PicInfo> currentSet = new HashSet<>();
 
-    public MTPService(Context context) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        mContext = context;
-        mAlert = builder.create();
-        if(Constant.mtpDevice!=null) {
-            mMtpDevice=Constant.mtpDevice;
+    public MTPService(Fragment fragment) {
+        mFragment = fragment;
+        mContext = fragment.getActivity();
+        manager = (UsbManager) mContext.getSystemService(Context.USB_SERVICE);
+        if (Constant.mtpDevice != null) {
+            mMtpDevice = Constant.mtpDevice;
             startScanPic();
-            
+        } else {
+            UsbDevice device = fragment.getActivity().getIntent().getParcelableExtra(UsbManager.EXTRA_DEVICE);
+            if (device != null) {
+                checkMtpDevice(device, 0);
+            } else {
+                showToast(mContext, "请重新插拔连接设备");
+            }
         }
-        else
-           showToast(context,"请重新插拔连接设备");
         registerReceiverMtp();
     }
 
-    private void showToast(Context context, String s) {
-        Toast.makeText(context,s,Toast.LENGTH_SHORT).show();
+    private void showToast(final Context context, final String s) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(context, s, Toast.LENGTH_SHORT).show();
+            }
+        });
+
     }
 
-    boolean isRegister=false;
+    boolean isRegister = false;
 
     void registerReceiverMtp() {
         IntentFilter intentFilter = new IntentFilter();
@@ -74,13 +94,10 @@ public class MTPService {
         intentFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         intentFilter.addAction(ACTION_USB_PERMISSION);
         mContext.registerReceiver(mtpReceiver, intentFilter);
-        isRegister=true;
+        isRegister = true;
     }
 
-    UsbDevice mUsbDevice;
     MtpDevice mMtpDevice;
-
-    AlertDialog mAlert;
 
     BroadcastReceiver mtpReceiver = new BroadcastReceiver() {
         @Override
@@ -94,7 +111,7 @@ public class MTPService {
                     break;
                 case UsbManager.ACTION_USB_DEVICE_DETACHED:
                     Constant.usbDeviceName = "";
-                    Constant.mtpDevice=null;
+                    Constant.mtpDevice = null;
                     if (mMtpDevice != null) {
                         mMtpDevice.close();
                         disposable.dispose();
@@ -111,41 +128,36 @@ public class MTPService {
     };
 
     public void checkMtpDevice(UsbDevice usbDevice, int key) {
-        UsbManager manager = (UsbManager) mContext.getSystemService(Context.USB_SERVICE);
-        boolean isOpenMtp;
-        if (manager.hasPermission(usbDevice)) {
-            UsbDeviceConnection usbDeviceConnection = manager.openDevice(usbDevice);
-            mUsbDevice = usbDevice;
-            mMtpDevice = new MtpDevice(usbDevice);
-            isOpenMtp = mMtpDevice.open(usbDeviceConnection);
-            Constant.usbDeviceName = mUsbDevice.getDeviceName();
-        } else {
+        if (!manager.hasPermission(usbDevice)) {
+            //请求usb设备权限
             PendingIntent mPermissionIntent = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_USB_PERMISSION), 0);
             manager.requestPermission(usbDevice, mPermissionIntent);
+            Log.d(TAG, "request usb permission");
             return;
         }
+        UsbDeviceConnection usbDeviceConnection = manager.openDevice(usbDevice);
+        mMtpDevice = new MtpDevice(usbDevice);
+        boolean isOpenMtp = mMtpDevice.open(usbDeviceConnection);
+        Constant.usbDeviceName = usbDevice.getDeviceName();
 
-        Log.d("","isOpenMtp===" + isOpenMtp + usbDevice.getDeviceName());
+        Log.d(TAG, "isOpenMtp===" + isOpenMtp + usbDevice.getDeviceName());
         if (isOpenMtp) {
             Constant.mtpDevice = mMtpDevice;
-            mAlert.hide();
             startScanPic();
         } else {
-            //            handleMtpDevice(usbDevice, 3);
-            mAlert.setMessage("与MTP建立连接失败，请重新插入MTP设备" + key );
-            mAlert.show();
+            showToast(mContext, "与MTP建立连接失败，请重新插入MTP设备" + key);
         }
 
     }
 
-    public void startScanPic(){
+    public void startScanPic() {
         disposable = interval(8, TimeUnit.SECONDS)
                 .onBackpressureDrop()
-                .map(new Function<Long, List>() {
+                .flatMap(new Function<Long, Flowable<List[]>>() {
                     @Override
-                    public List apply(Long aLong) throws Exception {
-                        Log.d(TAG,"start1===" + aLong);
-                        List list = new ArrayList();
+                    public Flowable<List[]> apply(Long aLong) throws Exception {
+                        Log.d(TAG, "start1===" + aLong);
+                        List<PicInfo> list = new ArrayList();
                         if (mMtpDevice != null) {
                             MtpDeviceInfo mtpDeviceInfo = mMtpDevice.getDeviceInfo();
                             String deviceSeriNumber = null;
@@ -155,21 +167,21 @@ public class MTPService {
                                 deviceSeriNumber = "xx";
                             int[] storageIds = mMtpDevice.getStorageIds();
                             if (storageIds == null) {
-                                showToast(mContext,"获取相机存储空间失败");
-                                return list;
+                                showToast(mContext, "获取相机存储空间失败");
+                                return Flowable.just(new List[]{list,null,null});
                             }
                             for (int storageId : storageIds) {
                                 int[] objectHandles = mMtpDevice.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, 0);
-                                if(objectHandles==null){
-                                    showToast(mContext,"获取照片失败");
-                                    return list;
+                                if (objectHandles == null) {
+                                    showToast(mContext, "获取照片失败");
+                                    return Flowable.just(new List[]{list,null,null});
                                 }
                                 for (int objectHandle : objectHandles) {
                                     MtpObjectInfo mtpobj = mMtpDevice.getObjectInfo(objectHandle);
                                     if (mtpobj == null) {
                                         continue;
                                     }
-                                    long dateCreated=mtpobj.getDateCreated();
+                                    long dateCreated = mtpobj.getDateCreated();
 
 
                                     byte[] bytes = mMtpDevice.getThumbnail(objectHandle);
@@ -186,6 +198,8 @@ public class MTPService {
 
                                     PicInfo info = new PicInfo();
                                     info.setObjectHandler(objectHandle);
+                                    //                                    mtpobj.getName()
+                                    info.setFilename(mtpobj.getName());
                                     info.setmThumbnailPath(fileJpg.getAbsolutePath());
                                     info.setmDateCreated(dateCreated);
                                     info.setmImagePixWidth(mtpobj.getImagePixWidth());
@@ -203,26 +217,73 @@ public class MTPService {
                                 }
                             }
                         }
-                        return list;
+                        sort(list);
+                        Log.d(TAG, "list size:" + list.size()+"set size:"+currentSet.size());
+                        if(list.size()>currentSet.size()){
+                            List mList=new ArrayList();
+                            for (int j=0;j<list.size();j++) {
+                                PicInfo pic = list.get(j);
+                                if (currentSet.add(pic)) {
+                                    mList.add(pic);
+                                }
+                            }
+                            return Flowable.just(new List[]{list, mList, null});
+                        } else if(list.size()<currentSet.size()){
+                            currentSet.clear();
+                            currentSet.addAll(list);
+                            return Flowable.just(new List[]{list, null, list});
+                        }
+
+                        return Flowable.just(new List[]{list, null, null});
                     }
                 }).subscribeOn(Schedulers.io())               //线程调度器,将发送者运行在子线程
                 .observeOn(AndroidSchedulers.mainThread())          //接受者运行在主线程
-                .subscribe((Consumer<? super List>) mContext);
+                .subscribe(new Consumer<List[]>() {
+                    @Override
+                    public void accept(List[] lists) throws Exception {
+                        ((MTPFile) mFragment).onAllFile(lists[ALL]);
+                        if(lists[ADD]!=null){
+                            ((MTPFile) mFragment).onFileAdded(lists[ADD]);
+                        }
+                        if(lists[DECREASE]!=null){
+                            ((MTPFile) mFragment).onFileDecrease(lists[DECREASE]);
+                        }
+                    }
+                });
     }
 
+
+    static final int ALL=0;
+    static final int ADD=1;
+    static final int DECREASE=2;
+
     public void close() {
-        if(isRegister) {
+        if (isRegister) {
             mContext.unregisterReceiver(mtpReceiver);
-            isRegister=false;
+            isRegister = false;
         }
         if (mMtpDevice != null) {
-//            mMtpDevice.close();
+            //            mMtpDevice.close();
         }
         if (disposable != null)
             disposable.dispose();
     }
 
 
+    public void sort(List<PicInfo> list) {
+        Collections.sort(list, new Comparator<PicInfo>() {
+            @Override
+            public int compare(PicInfo o1, PicInfo o2) {
+                return (int) (o1.getmDateCreated() / 1000 - o2.getmDateCreated() / 1000);
+            }
+        });
+    }
+
+    public interface MTPFile  {
+        void onAllFile(List<PicInfo> list);
+        void onFileAdded(List<PicInfo> list);
+        void onFileDecrease(List<PicInfo> listAll); //文件减少，列举出设备全部的文件
+    }
 
 
 }

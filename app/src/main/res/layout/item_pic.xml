@@ -12,4 +12,23 @@
         android:layout_height="wrap_content"
         android:scaleType="centerCrop"/>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#77000000"/>
+
+    <CheckBox
+        android:id="@+id/cb_select"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="right"
+        android:visibility="invisible"/>
+    <TextView
+        android:id="@+id/tv_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="@color/white"
+        android:layout_gravity="bottom|center_horizontal"/>
+
 </FrameLayout>
