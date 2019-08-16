@@ -41,7 +41,9 @@ public class PhotoFragment extends Fragment implements MTPService.MTPFile {
     private CustomDialog mCustomDialog;
     int columns = 3;
     private TextView tvNoAlbum;
+    private TextView tvSelect;
     private TextView tvDelete;
+    private boolean isSelect=false;
     UsbReceiver mService;
 
     @Override
@@ -55,12 +57,36 @@ public class PhotoFragment extends Fragment implements MTPService.MTPFile {
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         rv = (RecyclerView) view.findViewById(R.id.list);
-        tvDelete=view.findViewById(R.id.tv_delete);
+        tvSelect=view.findViewById(R.id.tv_select);
+        tvDelete=view.findViewById(R.id.tv_delete_file);
         tvNoAlbum = view.findViewById(R.id.tv_no_album);
         adapter = new PicAdapter(rv, getActivity(),
                 mList, columns);
         rv.setAdapter(adapter);
         rv.setLayoutManager(new GridLayoutManager(getActivity(), columns));
+
+        tvSelect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(isSelect){
+                    tvSelect.setText("选择");
+                    tvDelete.setVisibility(View.GONE);
+                    adapter.setAllowDelete(false);
+                    isSelect=false;
+                }else{
+                    tvSelect.setText("取消");
+                    tvDelete.setVisibility(View.VISIBLE);
+                    adapter.setAllowDelete(true);
+                    isSelect=true;
+                }
+            }
+        });
+        tvDelete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                adapter.deleteFiles();
+            }
+        });
 
         mCustomDialog = new CustomDialog(getActivity(), LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT, R.layout.dialog_big_picture,
@@ -145,10 +171,10 @@ public class PhotoFragment extends Fragment implements MTPService.MTPFile {
     public void onAllFile(List<PicInfo> list) {
         if (list.size() <= 0) {
             tvNoAlbum.setVisibility(View.VISIBLE);
-            tvDelete.setVisibility(View.INVISIBLE);
+            tvSelect.setVisibility(View.INVISIBLE);
         } else {
             tvNoAlbum.setVisibility(View.INVISIBLE);
-//            tvDelete.setVisibility(View.VISIBLE);
+            tvSelect.setVisibility(View.VISIBLE);
         }
     }
 

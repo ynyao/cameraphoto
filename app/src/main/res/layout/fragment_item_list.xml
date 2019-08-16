@@ -5,19 +5,27 @@
     android:layout_height="match_parent">
 
     <TextView
-        android:id="@+id/tv_delete"
+        android:id="@+id/tv_select"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
         android:layout_margin="10dp"
         android:textSize="18sp"
         android:visibility="invisible"
         android:text="多选"/>
+    <TextView
+        android:id="@+id/tv_delete_file"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:textSize="18sp"
+        android:layout_alignParentEnd="true"
+        android:visibility="invisible"
+        android:text="删除"/>
     <android.support.v7.widget.RecyclerView
         android:id="@+id/list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/tv_delete"
+        android:layout_below="@id/tv_select"
         android:paddingLeft="10dp"
         android:paddingRight="10dp"/>
     <!--android:padding="10dp"/>-->
