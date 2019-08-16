@@ -19,12 +19,14 @@ import android.widget.TextView;
 import com.example.test.cameraphoto.R;
 import com.example.test.cameraphoto.mtp.MTPService;
 import com.example.test.cameraphoto.mtp.PicInfo;
+import com.example.test.cameraphoto.mtp.UsbReceiver;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
 import com.squareup.picasso.Transformation;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 
@@ -40,7 +42,7 @@ public class PhotoFragment extends Fragment implements MTPService.MTPFile {
     int columns = 3;
     private TextView tvNoAlbum;
     private TextView tvDelete;
-    MTPService mService;
+    UsbReceiver mService;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -162,8 +164,17 @@ public class PhotoFragment extends Fragment implements MTPService.MTPFile {
     @Override
     public void onFileDecrease(List<PicInfo> list) {
         mList.clear();
-        for(int i=0;i<list.size();i++){
-            mList.add(0,list.get(i));
+        if(list.size()!=1) {
+            for (int i = 0; i < list.size(); i++) {
+                mList.add(0, list.get(i));
+            }
+        }else{
+            for (Iterator<PicInfo> it = mList.iterator(); it.hasNext(); ) {
+                PicInfo info = it.next();
+                if (info.getObjectHandler() == list.get(0).getObjectHandler()) {
+                    it.remove();
+                }
+            }
         }
         adapter.notifyDataSetChanged();
     }
